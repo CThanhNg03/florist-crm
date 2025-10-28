@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.routers import auth, health
+from app.routers import customers, orders, skus
 
 TAGS_METADATA = [
     {
@@ -12,6 +13,18 @@ TAGS_METADATA = [
     {
         "name": "auth",
         "description": "Authentication and user session endpoints.",
+    },
+    {
+        "name": "customers",
+        "description": "Customer management endpoints.",
+    },
+    {
+        "name": "skus",
+        "description": "Product and template catalog endpoints.",
+    },
+    {
+        "name": "orders",
+        "description": "Order lifecycle management endpoints.",
     },
 ]
 
@@ -29,3 +42,6 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(customers.router)
+app.include_router(skus.router)
+app.include_router(orders.router)

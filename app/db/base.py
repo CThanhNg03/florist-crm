@@ -6,4 +6,4 @@ class Base(DeclarativeBase):
 
 
 # Import models for Alembic autogeneration
-from app.db.models import users  # noqa: E402,F401
+from app.db.models import customers, orders, skus, users  # noqa: E402,F401
