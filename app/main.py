@@ -1,9 +1,12 @@
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from app.api.routes import florists as api_florists
+from app.api.routes import orders as api_orders
+from app.api.routes import tasks as api_tasks
 from app.core.config import get_settings
-from app.routers import auth, health
-from app.routers import customers, orders, skus
+from app.routers import auth, customers, health, orders, skus
 
 TAGS_METADATA = [
     {
@@ -26,6 +29,14 @@ TAGS_METADATA = [
         "name": "orders",
         "description": "Order lifecycle management endpoints.",
     },
+    {
+        "name": "tasks",
+        "description": "Task management endpoints.",
+    },
+    {
+        "name": "florists",
+        "description": "Florist directory endpoints.",
+    },
 ]
 
 settings = get_settings()
@@ -40,8 +51,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api_router = APIRouter(prefix="/api")
+api_router.include_router(api_tasks.router)
+api_router.include_router(api_orders.router)
+api_router.include_router(api_florists.router)
+
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(customers.router)
 app.include_router(skus.router)
 app.include_router(orders.router)
+app.include_router(api_router)
+
+app.mount(settings.media_url, StaticFiles(directory=settings.media_root), name="media")
