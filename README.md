@@ -20,6 +20,9 @@ Florist CRM is a FastAPI-powered backend for managing florist shop operations. T
 
 The API will be available at <http://localhost:8000>. Interactive API docs live at <http://localhost:8000/docs>.
 
+Uploaded completion proof images are stored under `MEDIA_ROOT` (default `./media`) and served from `/media`. Update `MEDIA_URL` if
+your deployment needs a different public path.
+
 ## Default users
 
 The seed script creates the following accounts (password `changeme`):
