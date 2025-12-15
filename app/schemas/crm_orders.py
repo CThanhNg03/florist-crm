@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.db.models.crm_orders import CrmOrderStatus
+from app.domain.entities.order import OrderStatus
 
 
 class OrderBase(BaseModel):
@@ -14,7 +14,7 @@ class OrderBase(BaseModel):
     receiverPhone: str | None = Field(default=None, validation_alias="receiver_phone")
     deliveryAddress: str | None = Field(default=None, validation_alias="delivery_address")
     scheduledAt: datetime | None = Field(default=None, validation_alias="scheduled_at")
-    status: CrmOrderStatus | None = Field(default=None)
+    status: OrderStatus | None = Field(default=None)
     pricing: int | None = Field(default=None)
     notes: str | None = Field(default=None)
 
@@ -25,7 +25,7 @@ class OrderCreate(OrderBase):
     customerName: str
     customerPhone: str
     receiverName: str
-    status: CrmOrderStatus | None = Field(default=CrmOrderStatus.NEW)
+    status: OrderStatus | None = Field(default=OrderStatus.NEW)
 
 
 class Order(OrderBase):
@@ -36,7 +36,7 @@ class Order(OrderBase):
     receiverPhone: str | None
     deliveryAddress: str | None
     scheduledAt: datetime | None
-    status: CrmOrderStatus
+    status: OrderStatus
     pricing: int | None
     notes: str | None
     createdAt: datetime = Field(validation_alias="created_at")

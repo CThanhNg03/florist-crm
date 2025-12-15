@@ -5,7 +5,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.db.models.tasks import TaskStatus
+from app.domain.entities.task import TaskStatus
 
 
 class AssignTaskPayload(BaseModel):
@@ -41,6 +41,10 @@ class TaskStatusUpdate(BaseModel):
 
 class TaskNotesUpdate(BaseModel):
     notes: str
+
+
+class TaskCompletionPayload(BaseModel):
+    completionProofUrl: str = Field(validation_alias="completion_proof_url")
 
 
 class Task(BaseModel):

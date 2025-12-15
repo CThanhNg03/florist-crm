@@ -39,28 +39,34 @@ TAGS_METADATA = [
     },
 ]
 
-settings = get_settings()
+def create_app() -> FastAPI:
+    settings = get_settings()
 
-app = FastAPI(title="Florist CRM API", openapi_tags=TAGS_METADATA)
+    application = FastAPI(title="Florist CRM API", openapi_tags=TAGS_METADATA)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-api_router = APIRouter(prefix="/api")
-api_router.include_router(api_tasks.router)
-api_router.include_router(api_orders.router)
-api_router.include_router(api_florists.router)
+    api_router = APIRouter(prefix="/api")
+    api_router.include_router(api_tasks.router)
+    api_router.include_router(api_orders.router)
+    api_router.include_router(api_florists.router)
 
-app.include_router(health.router)
-app.include_router(auth.router)
-app.include_router(customers.router)
-app.include_router(skus.router)
-app.include_router(orders.router)
-app.include_router(api_router)
+    application.include_router(health.router)
+    application.include_router(auth.router)
+    application.include_router(customers.router)
+    application.include_router(skus.router)
+    application.include_router(orders.router)
+    application.include_router(api_router)
 
-app.mount(settings.media_url, StaticFiles(directory=settings.media_root), name="media")
+    application.mount(settings.media_url, StaticFiles(directory=settings.media_root), name="media")
+
+    return application
+
+
+app = create_app()
