@@ -20,8 +20,7 @@ Florist CRM is a FastAPI-powered backend for managing florist shop operations. T
 
 The API will be available at <http://localhost:8000>. Interactive API docs live at <http://localhost:8000/docs>.
 
-Uploaded completion proof images are stored under `MEDIA_ROOT` (default `./media`) and served from `/media`. Update `MEDIA_URL` if
-your deployment needs a different public path.
+Completion proof images are uploaded directly to your S3 bucket by the frontend using presigned URLs. Backend payloads accept only the image URL/key and persist that reference; no multipart or binary uploads are handled by the API.
 
 ## Default users
 
@@ -37,6 +36,10 @@ The seed script creates the following accounts (password `changeme`):
 
 - `make dev` – build and start the Docker Compose stack.
 - `make migrate` – run Alembic migrations inside the API container.
+
+## Deployment
+
+See [docs/deployment.md](docs/deployment.md) for detailed steps to run the service with Uvicorn or deploy it to AWS Lambda (API Gateway) using the shared application wiring.
 
 ## Tech stack
 
