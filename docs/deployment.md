@@ -82,7 +82,7 @@ The Lambda entrypoint is `app.lambda_handler.handler` which wraps the same FastA
 
 ## Image uploads
 
-The backend no longer accepts multipart uploads. The frontend must upload task completion images directly to S3 using presigned URLs and then send the resulting object key or URL in the API payload (e.g., `completionProofUrl`). Only the URL/key is stored in the database.
+The backend no longer accepts multipart uploads. The frontend must upload task completion images directly to S3 using presigned URLs and then send the resulting object key or URL in the API payload (e.g., `completionProofUrl`). Only the URL/key is stored in the database. Configure your frontend or signing service with `S3_BUCKET` and `AWS_REGION`, and ensure the bucket CORS policy allows uploads from your frontend.
 
 ## Troubleshooting
 

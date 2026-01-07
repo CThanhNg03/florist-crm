@@ -12,8 +12,10 @@ This guide explains how to configure environment variables for on-prem/local dep
 | `CORS_ORIGINS` | No | Comma-separated list of allowed origins (default `*`). | `https://app.example.com,https://admin.example.com` |
 | `MEDIA_ROOT` | No | Local path for media storage (default `media`). | `media` |
 | `MEDIA_URL` | No | URL prefix for serving media (default `/media`). | `/media` |
+| `S3_BUCKET` | No | S3 bucket used by the frontend or signing service for presigned uploads. | `florist-crm-uploads` |
+| `AWS_REGION` | No | AWS region for S3 operations. | `us-east-1` |
 
-> **Note:** The backend does not require AWS credentials directly. If your frontend requests presigned URLs, configure that in your frontend or a separate signing service.
+> **Note:** The backend does not require AWS credentials directly. Presigned URL generation typically happens in the frontend or a separate signing service.
 
 ## Local/on-prem setup (Uvicorn or Docker)
 
@@ -59,3 +61,17 @@ When deploying on AWS (Lambda, ECS, or EC2), set environment variables in the se
 
 - Use an RDS instance or another PostgreSQL-compatible database reachable from your AWS runtime.
 - If using Lambda, ensure the function has VPC access to the database and consider RDS Proxy for connection pooling.
+
+## S3 image upload setup (frontend or signing service)
+
+Completion proof images are uploaded to S3 using presigned URLs. The API only stores the resulting object key or URL in `completionProofUrl`.
+
+1. Create or select an S3 bucket (for example, `florist-crm-uploads`).
+2. Configure your frontend or signing service with:
+   - `S3_BUCKET`
+   - `AWS_REGION`
+3. If you have a backend signing service, ensure it has IAM permissions to generate presigned URLs and write to the bucket, such as:
+   - `s3:PutObject`
+   - `s3:GetObject`
+   - `s3:ListBucket` (optional)
+4. Configure a CORS policy on the bucket to allow browser uploads from your frontend domain.
