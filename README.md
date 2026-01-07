@@ -5,6 +5,7 @@ Florist CRM is a FastAPI-powered backend for managing florist shop operations. T
 ## Getting started
 
 1. Copy `.env.example` to `.env` and adjust the values as needed.
+   See [docs/environment-setup.md](docs/environment-setup.md) for detailed environment configuration guidance.
 2. Build and start the stack:
    ```bash
    docker compose up --build
