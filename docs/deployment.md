@@ -9,9 +9,10 @@ This project is structured with Clean Architecture so the same application wirin
 - AWS account with permissions for Lambda, API Gateway, ECR (if using container images), and S3
 - Required environment variables (can come from `.env`, Docker Compose, Lambda configuration, or your CI/CD system):
   - `DATABASE_URL` – PostgreSQL connection string
-  - `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
-  - `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (or IAM role when on AWS)
-  - `S3_BUCKET` (used by the frontend when requesting presigned URLs)
+  - `JWT_SECRET` – JWT signing secret
+  - `JWT_EXPIRES_MIN` – JWT expiration window in minutes (optional, default 60)
+  - `CORS_ORIGINS` – Comma-separated origins allowed to call the API (optional, default `*`)
+  - `MEDIA_ROOT`, `MEDIA_URL` – Local media configuration (optional)
   - Any SMTP or other integration settings your deployment needs
 
 ## Running with Uvicorn (local or on-prem)
@@ -81,7 +82,7 @@ The Lambda entrypoint is `app.lambda_handler.handler` which wraps the same FastA
 
 ## Image uploads
 
-The backend no longer accepts multipart uploads. The frontend must upload task completion images directly to S3 using presigned URLs and then send the resulting object key or URL in the API payload (e.g., `completionProofUrl`). Only the URL/key is stored in the database.
+The backend no longer accepts multipart uploads. The frontend must upload task completion images directly to S3 using presigned URLs and then send the resulting object key or URL in the API payload (e.g., `completionProofUrl`). Only the URL/key is stored in the database. Configure your frontend or signing service with `S3_BUCKET` and `AWS_REGION`, and ensure the bucket CORS policy allows uploads from your frontend.
 
 ## Troubleshooting
 
