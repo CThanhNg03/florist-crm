@@ -1,147 +1,131 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_async_db
-from app.db.models.crm_orders import CrmOrder
-from app.db.models.florists import Florist
-from app.db.models.tasks import Task, TaskStatus
+from app.api.deps import get_use_cases
 from app.schemas.tasks import (
     AssignTaskPayload,
     Task as TaskSchema,
+    TaskCompletionPayload,
     TaskCreate,
     TaskNotesUpdate,
     TaskStatusUpdate,
     TaskUpdate,
 )
-from app.services.storage import LocalStorage
+from app.use_cases.exceptions import NotFoundError, ValidationError
+from app.use_cases.factory import UseCaseFactory
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-async def _get_task(session: AsyncSession, task_id: int) -> Task:
-    task = await session.get(Task, task_id)
-    if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    return task
-
-
-async def _validate_relationships(
-    session: AsyncSession, order_id: int | None = None, florist_id: int | None = None
-) -> None:
-    if order_id is not None:
-        order = await session.get(CrmOrder, order_id)
-        if order is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    if florist_id is not None:
-        florist = await session.get(Florist, florist_id)
-        if florist is None or not florist.is_active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Florist not found or inactive")
+def _handle_errors(exc: Exception) -> None:
+    if isinstance(exc, NotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    raise exc
 
 
 @router.get("", response_model=list[TaskSchema])
-async def list_tasks(db: AsyncSession = Depends(get_async_db)) -> list[Task]:
-    result = await db.execute(select(Task))
-    return result.scalars().all()
+async def list_tasks(use_cases: UseCaseFactory = Depends(get_use_cases)) -> list[TaskSchema]:
+    use_case = use_cases.list_tasks()
+    tasks = await use_case.execute()
+    return tasks
 
 
 @router.post("", response_model=TaskSchema, status_code=status.HTTP_201_CREATED)
-async def create_task(payload: TaskCreate, db: AsyncSession = Depends(get_async_db)) -> Task:
-    await _validate_relationships(db, order_id=payload.orderId, florist_id=payload.floristId)
-    task = Task(
-        title=payload.title,
-        status=payload.status or TaskStatus.PENDING,
-        schedule=payload.schedule,
-        pricing=payload.pricing,
-        notes=payload.notes,
-        photos=payload.photos or [],
-        order_id=payload.orderId,
-        florist_id=payload.floristId,
-    )
-    db.add(task)
-    await db.commit()
-    await db.refresh(task)
-    return task
+async def create_task(
+    payload: TaskCreate, use_cases: UseCaseFactory = Depends(get_use_cases)
+) -> TaskSchema:
+    use_case = use_cases.create_task()
+    try:
+        return await use_case.execute(
+            title=payload.title,
+            status=payload.status,
+            schedule=payload.schedule,
+            pricing=payload.pricing,
+            notes=payload.notes,
+            photos=payload.photos,
+            order_id=payload.orderId,
+            florist_id=payload.floristId,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.get("/{task_id}", response_model=TaskSchema)
-async def get_task(task_id: int, db: AsyncSession = Depends(get_async_db)) -> Task:
-    return await _get_task(db, task_id)
+async def get_task(task_id: int, use_cases: UseCaseFactory = Depends(get_use_cases)) -> TaskSchema:
+    use_case = use_cases.get_task()
+    try:
+        return await use_case.execute(task_id)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.patch("/{task_id}", response_model=TaskSchema)
-async def update_task(task_id: int, payload: TaskUpdate, db: AsyncSession = Depends(get_async_db)) -> Task:
-    task = await _get_task(db, task_id)
-    await _validate_relationships(db, order_id=payload.orderId, florist_id=payload.floristId)
-
+async def update_task(
+    task_id: int, payload: TaskUpdate, use_cases: UseCaseFactory = Depends(get_use_cases)
+) -> TaskSchema:
+    use_case = use_cases.update_task()
+    updates = payload.model_dump(exclude_unset=True)
     field_map = {"orderId": "order_id", "floristId": "florist_id", "completionProofUrl": "completion_proof_url"}
-
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        if field == "photos" and value is None:
-            continue
-        target_attr = field_map.get(field, field)
-        setattr(task, target_attr, value)
-
-    await db.commit()
-    await db.refresh(task)
-    return task
+    normalized_updates = {field_map.get(key, key): value for key, value in updates.items()}
+    try:
+        return await use_case.execute(task_id, normalized_updates)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.patch("/{task_id}/status", response_model=TaskSchema)
-async def update_status(task_id: int, payload: TaskStatusUpdate, db: AsyncSession = Depends(get_async_db)) -> Task:
-    task = await _get_task(db, task_id)
-    task.status = payload.status
-    await db.commit()
-    await db.refresh(task)
-    return task
+async def update_status(
+    task_id: int, payload: TaskStatusUpdate, use_cases: UseCaseFactory = Depends(get_use_cases)
+) -> TaskSchema:
+    use_case = use_cases.update_task_status()
+    try:
+        return await use_case.execute(task_id, payload.status)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.patch("/{task_id}/notes", response_model=TaskSchema)
-async def update_notes(task_id: int, payload: TaskNotesUpdate, db: AsyncSession = Depends(get_async_db)) -> Task:
-    task = await _get_task(db, task_id)
-    task.notes = payload.notes
-    await db.commit()
-    await db.refresh(task)
-    return task
+async def update_notes(
+    task_id: int, payload: TaskNotesUpdate, use_cases: UseCaseFactory = Depends(get_use_cases)
+) -> TaskSchema:
+    use_case = use_cases.update_task_notes()
+    try:
+        return await use_case.execute(task_id, payload.notes)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.post("/{task_id}/assign", response_model=TaskSchema)
-async def assign_task(task_id: int, payload: AssignTaskPayload, db: AsyncSession = Depends(get_async_db)) -> Task:
-    task = await _get_task(db, task_id)
-    if payload.floristId is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="floristId is required")
-    await _validate_relationships(db, florist_id=payload.floristId)
-    task.florist_id = payload.floristId
-    task.status = TaskStatus.ASSIGNED
-    await db.commit()
-    await db.refresh(task)
-    return task
+async def assign_task(
+    task_id: int, payload: AssignTaskPayload, use_cases: UseCaseFactory = Depends(get_use_cases)
+) -> TaskSchema:
+    use_case = use_cases.assign_task()
+    try:
+        return await use_case.execute(task_id, payload.floristId)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.post("/{task_id}/unassign", response_model=TaskSchema)
-async def unassign_task(task_id: int, payload: AssignTaskPayload, db: AsyncSession = Depends(get_async_db)) -> Task:
-    task = await _get_task(db, task_id)
-    task.florist_id = None
-    if task.status == TaskStatus.ASSIGNED:
-        task.status = TaskStatus.PENDING
-    await db.commit()
-    await db.refresh(task)
-    return task
+async def unassign_task(task_id: int, use_cases: UseCaseFactory = Depends(get_use_cases)) -> TaskSchema:
+    use_case = use_cases.unassign_task()
+    try:
+        return await use_case.execute(task_id)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
 
 
 @router.post("/{task_id}/complete", response_model=TaskSchema)
 async def complete_task(
     task_id: int,
-    photo: UploadFile = File(...),
-    db: AsyncSession = Depends(get_async_db),
-) -> Task:
-    task = await _get_task(db, task_id)
-    storage = LocalStorage()
-    completion_url = await storage.save_completion_image(task_id, photo)
-    task.completion_proof_url = completion_url
-    task.status = TaskStatus.COMPLETED
-    await db.commit()
-    await db.refresh(task)
-    return task
+    payload: TaskCompletionPayload,
+    use_cases: UseCaseFactory = Depends(get_use_cases),
+) -> TaskSchema:
+    use_case = use_cases.complete_task()
+    try:
+        return await use_case.execute(task_id, payload.completionProofUrl)
+    except Exception as exc:  # noqa: BLE001
+        _handle_errors(exc)
